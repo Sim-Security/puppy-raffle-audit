@@ -213,4 +213,47 @@ contract PuppyRaffleTest is Test {
         puppyRaffle.withdrawFees();
         assertEq(address(feeAddress).balance, expectedPrizeAmount);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                           DENIAL OF SERVICE
+    //////////////////////////////////////////////////////////////*/
+        function test_denialOfService() public {
+
+        // address[] memory players = new address[](1);
+        // players[0] = playerOne;
+        // puppyRaffle.enterRaffle{value: entranceFee}(players);
+        // assertEq(puppyRaffle.players(0), playerOne);
+        vm.txGasPrice(1);
+        
+        uint256 playersNum= 100;
+        address[] memory players = new address[](100);
+
+        for (uint256 i=0; i < playersNum; i++) {
+            players[i] = address(i);
+        }
+
+        uint256 gasStartA = gasleft();
+        puppyRaffle.enterRaffle{value: entranceFee*players.length}(players);
+        uint256 gasCostA = (gasStartA - gasleft()) * tx.gasprice;
+
+        address[] memory playersTwo = new address[](100);
+
+        for (uint256 i=0; i < playersNum; i++) {
+            playersTwo[i] = address(i+ playersNum);
+        }
+
+        uint256 gasStartB = gasleft();
+        puppyRaffle.enterRaffle{value: entranceFee*players.length}(playersTwo);
+        uint256 gasCostB = (gasStartB - gasleft()) * tx.gasprice;
+
+
+        console.log("Gas cost of first 100 players: %s", gasCostA);
+        console.log("Gas cost of second 100 players: %s", gasCostB);
+
+        // // The gas cost will just keep rising, making it harder and harder for new people to enter!
+        assert(gasCostB > gasCostA);
+    }
 }
+
+
+
