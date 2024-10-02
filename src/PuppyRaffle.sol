@@ -140,11 +140,18 @@ contract PuppyRaffle is ERC721, Ownable {
         uint256 fee = (totalAmountCollected * 20) / 100;
         // this is the total fees the owner should be able to collect
         // @audit Overflow
+        // Max uint 64 is 18446744073709551615 = 18.446744073709551615 eth
+        // fixes: use safe math, update version of solidity. bigger uints
+        // @audit unsafe casting!
+        // say we get 20 eth in fees as a unit256, when we get here it will be cast to uint 64!
+        // uint256 20eth = 20e18 = 20 eth
+        // uint64 20eth = 1553255926290448384 = 1.553255926290448384 eth
         totalFees = totalFees + uint64(fee);
 
         uint256 tokenId = totalSupply();
 
         // We use a different RNG calculate from the winnerIndex to determine rarity
+        // @audit randomness
         uint256 rarity = uint256(keccak256(abi.encodePacked(msg.sender, block.difficulty))) % 100;
         if (rarity <= COMMON_RARITY) {
             tokenIdToRarity[tokenId] = COMMON_RARITY;
@@ -154,9 +161,12 @@ contract PuppyRaffle is ERC721, Ownable {
             tokenIdToRarity[tokenId] = LEGENDARY_RARITY;
         }
 
-        delete players;
-        raffleStartTime = block.timestamp;
-        previousWinner = winner;
+        delete players; // e resetting the players array
+        raffleStartTime = block.timestamp; // e resetting the raffle start time
+        previousWinner = winner; // e vanity, doesnt matter much
+
+        // q can we reenter somewhere
+        // @audit - what if the winners fallback/receive function was messed up? could we DoS the raffle?
         (bool success,) = winner.call{value: prizePool}("");
         require(success, "PuppyRaffle: Failed to send prize pool to winner");
         _safeMint(winner, tokenId);
@@ -164,9 +174,12 @@ contract PuppyRaffle is ERC721, Ownable {
 
     /// @notice this function will withdraw the fees to the feeAddress
     function withdrawFees() external {
+        // q so, if the protocol has players someone cant withdraw fees?
+        // @audit is it difficult to withdraw fees
         require(address(this).balance == uint256(totalFees), "PuppyRaffle: There are currently players active!");
         uint256 feesToWithdraw = totalFees;
         totalFees = 0;
+        // q what if the fee Address is a smarth contract with a fallback that will fail?
         (bool success,) = feeAddress.call{value: feesToWithdraw}("");
         require(success, "PuppyRaffle: Failed to withdraw fees");
     }

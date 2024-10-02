@@ -287,6 +287,59 @@ contract PuppyRaffleTest is Test {
 
 
     }
+    /*//////////////////////////////////////////////////////////////
+                             TEST OVERFLOW
+    //////////////////////////////////////////////////////////////*/
+                                                                                 
+    function testTotalFeesOverFlow() public {
+        // enter 4 players and finish to collect fees
+        address[] memory players = new address[](4);
+        players[0] = playerOne;
+        players[1] = playerTwo;
+        players[2] = playerThree;
+        players[3] = playerFour;
+        puppyRaffle.enterRaffle{value: entranceFee * 4}(players);
+
+        //forward time
+        vm.warp(block.timestamp + duration + 1);
+        vm.roll(block.number + 1);
+        puppyRaffle.selectWinner();
+        uint256 startingTotalFees= puppyRaffle.totalFees();
+
+        // We the have 89 players enter the new raffle
+        uint256 playersNum= 89;
+        address[] memory playersTwo = new address[](playersNum);
+        for (uint256 i=0; i < playersNum; i++) {
+            playersTwo[i] = address(i);
+        }
+        puppyRaffle.enterRaffle{value: entranceFee*playersNum}(playersTwo);
+        // end the raffle
+        vm.warp(block.timestamp + duration + 1);
+        vm.roll(block.number + 1);
+
+        //Now the issue should occur
+        // We will have fewer fees even though it was a larger and second raffle
+        puppyRaffle.selectWinner();
+        uint256 endingTotalFees= puppyRaffle.totalFees();   
+        console.log("startingTotalFees: %s", startingTotalFees);
+        console.log("endingTotalFees: %s", endingTotalFees);
+        assert(endingTotalFees < startingTotalFees);
+
+        // We are also unable to withdraw any fees becauyse of the require check.
+        vm.prank(puppyRaffle.feeAddress());
+        vm.expectRevert("PuppyRaffle: There are currently players active!");
+        puppyRaffle.withdrawFees();
+
+    }
+
+    function testCantSendMoneyToRaffle() public {
+        address senderAddress = makeAddr("sender");
+        vm.deal(senderAddress, 1 ether);
+        vm.expectRevert();
+        vm.prank(senderAddress);
+        (bool success, ) = payable(address(puppyRaffle)).call{value: 1 ether}("");
+        require(success);
+    }
 }
 
 contract ReentrancyAttacker {
