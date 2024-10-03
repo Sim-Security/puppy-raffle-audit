@@ -83,6 +83,7 @@ contract PuppyRaffle is ERC721, Ownable {
         }
 
         // Check for duplicates
+        // @audit DoS
         for (uint256 i = 0; i < players.length - 1; i++) {
             for (uint256 j = i + 1; j < players.length; j++) {
                 require(players[i] != players[j], "PuppyRaffle: Duplicate player");
@@ -176,6 +177,7 @@ contract PuppyRaffle is ERC721, Ownable {
     function withdrawFees() external {
         // q so, if the protocol has players someone cant withdraw fees?
         // @audit is it difficult to withdraw fees
+        // @audit mishandling of ETH!!! No receive or fallback, potential selfdestruct attack for DoS
         require(address(this).balance == uint256(totalFees), "PuppyRaffle: There are currently players active!");
         uint256 feesToWithdraw = totalFees;
         totalFees = 0;
@@ -192,6 +194,7 @@ contract PuppyRaffle is ERC721, Ownable {
     }
 
     /// @notice this function will return true if the msg.sender is an active player
+    // @audit this is not used anywhere?
     function _isActivePlayer() internal view returns (bool) {
         for (uint256 i = 0; i < players.length; i++) {
             if (players[i] == msg.sender) {
